@@ -1,0 +1,71 @@
+---
+- name: Apt update
+  apt: update_cache=true
+
+- name: Add group "Tomact"
+  group: name=tomcat
+
+- name: create new user "tomat"
+  user: name=tomcat group=tomcat home={{tomcat_home_path}} createhome=no
+  sudo: True
+
+- name: Creates directory
+  file: path=/opt/tomcat state=directory
+
+- name: Download and extract tomcat to the home directory
+  unarchive: 
+    src: "{{tomcat_archive_url}}/{{tomcat_archive_name}}{{tomcat_archive_name_ext}}"
+    dest: "{{tomcat_install_path}}"
+    remote_src: true
+    group: tomcat
+    creates: "{{tomcat_archive_install_path}}" 
+
+- name: changing ownerships of a few directories
+  file:
+    path: "{{tomcat_archive_install_path}}/{{item}}"
+    owner: tomcat
+    group: tomcat
+    recurse: true
+  with_items: 
+    - webapps
+    - work
+    - temp
+    - logs
+
+- name: Granting read permissions to the conf directory
+  file: 
+    path: "{{tomcat_archive_install_path}}/conf"
+    state: directory
+    mode: "g+r"
+    recurse: true
+
+- name: Granting execution permission to the conf directory
+  file:
+    path: "{{tomcat_archive_install_path}}/conf"
+    state: directory
+    mode: "g+x"
+
+- name: Create tomcat-users.xml
+  file: 
+    src: templates/tomcat-users.xml
+    dest: "{{tomcat_archive_install_path}}/conf/tomcat-users.xml"
+
+- name: Symlink Tomcat to current version
+  file:
+    src: "{{tomcat_archive_install_path}}"
+    dest: "{{tomcat_install_link}}"
+    state: link
+
+- name: create systemd service file
+  template: 
+    src: "templates/tomcat.service"
+    dest: "/etc/systemd/system/tomcat.service"
+
+- name: start tomcat service
+  systemd: 
+    name: tomcat
+    state: started
+    enabled: true
+    daemon_reload: true
+
+
