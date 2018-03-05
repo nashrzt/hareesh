@@ -1,0 +1,43 @@
+---
+- name: Copy the setup files
+  copy: src="files/guacamole-server-{{ guac_server }}.tar.gz" dest=/tmp/
+  tags: file
+
+- name: Extract the fils
+  unarchive: src="/tmp/guacamole-server-{{ guac_server }}.tar.gz" copy=no dest="/tmp/"
+  tags: extract
+
+- name: Install dependencies
+  package: name={{ item }} state=latest update_cache=yes
+  with_items: '{{ dependencies }}'
+
+- name: Build from source
+  shell: '{{ item }}'
+  args: 
+    chdir: /tmp/guacamole-server-{{ guac_server }}.tar.gz
+    creates: /usr/local/sbin/guacd
+  with_items: '{{ ./configure --with-init-dir=/etc/init.d, make, make install }}'
+
+- name: Run ldconfig command
+  shell: ldconfig
+
+- name: Add autostart
+  command: update-rc.d guacd defaults
+
+- name: Copy client setup files
+  copy: src="files/guacamole-client-{{ guac_client }}.tar.gz" dest=/opt/
+  tags: file
+
+- name: Extract the file
+  unarchive: src="/opt/guacamole-client-{{ guac_client }}.tar.gz" copy=no dest="/opt/"
+  tags: extract
+
+- name: command for build client
+  shell: mvn package
+
+- name: Copy client files to tomcat
+    copy: src="/opt/guacamole-{{ guac_client }}.war" dest=/var/lib/{{ tomcat }}/webapps/guacamole.war
+    tags: file
+
+
+
